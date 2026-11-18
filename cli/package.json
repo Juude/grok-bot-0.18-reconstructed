@@ -1,0 +1,19 @@
+{
+  "name": "grok-bot-reconstructed-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Source-only terminal experiment using reconstructed Grok Bot components",
+  "engines": { "node": ">=22" },
+  "bin": { "grok-reconstructed": "dist/main.mjs" },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -23,6 +23,15 @@ This is a hacking and research project, not Anysphere's original monorepo and
 not an official Grok Bot release. Names and module boundaries inferred from a
 compiled application may differ from the original source.
 
+### Standalone CLI experiment
+
+[`cli/`](cli/README.md) provides a source-only terminal application with a
+Responses API tool loop, workspace file tools, resumable text sessions, and
+the reconstructed durable memory store. It builds independently of the desktop
+application and does not require Electron or the original installer. It is an
+initial headless subset, not the full original Agent harness; source availability
+does not change the licensing limitations described in `NOTICE.md`.
+
 ## What is in the repository?
 
 The checked-in tree contains the reviewed reconstruction, tests, manifests,

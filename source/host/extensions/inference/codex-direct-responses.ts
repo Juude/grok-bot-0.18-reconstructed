@@ -53,10 +53,10 @@ async function* sseEvents(response: Response): AsyncGenerator<Loose> {
   while (true) {
     const { done, value } = await reader.read();
     buffer += decoder.decode(value, { stream: !done });
-    let boundary: number;
-    while ((boundary = buffer.indexOf("\n\n")) !== -1) {
-      const block = buffer.slice(0, boundary).replaceAll("\r", "");
-      buffer = buffer.slice(boundary + 2);
+    let boundary: RegExpExecArray | null;
+    while ((boundary = /\r?\n\r?\n/.exec(buffer)) !== null) {
+      const block = buffer.slice(0, boundary.index).replaceAll("\r", "");
+      buffer = buffer.slice(boundary.index + boundary[0].length);
       const data = block.split("\n").filter(line => line.startsWith("data:")).map(line => line.slice(5).trimStart()).join("\n");
       if (data.length === 0 || data === "[DONE]") continue;
       let parsed: unknown;
