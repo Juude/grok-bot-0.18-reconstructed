@@ -1,0 +1,97 @@
+name: standalone CLI
+
+on:
+  push:
+    branches: ['**']
+    tags: ['cli-v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cli-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  standalone:
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        include:
+          - node: '22'
+            runner: ubuntu-latest
+          - node: '24'
+            runner: ubuntu-latest
+          - node: '24'
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Install CLI build dependencies only
+        working-directory: cli
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck the source-only dependency graph
+        working-directory: cli
+        run: npm run typecheck
+      - name: Build and exercise the standalone CLI
+        working-directory: cli
+        run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grok-reconstructed-cli-node-${{ matrix.node }}-${{ matrix.runner }}
+          path: |
+            cli/dist/main.mjs
+            cli/dist/provenance.json
+          if-no-files-found: error
+
+  publish:
+    needs: standalone
+    if: startsWith(github.ref, 'refs/heads/release/cli-v') || startsWith(github.ref, 'refs/tags/cli-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: cli/package-lock.json
+      - name: Verify release ref matches the package version
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const version = JSON.parse(readFileSync("cli/package.json", "utf8")).version;
+            if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error("Invalid release version");
+            if (!["cli-v" + version, "release/cli-v" + version].includes(process.env.RELEASE_REF))
+              throw new Error("Release ref does not match package version");
+          '
+      - name: Build and package the portable release
+        working-directory: cli
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build
+          npm run package:release
+          cd dist/release
+          sha256sum -c SHA256SUMS
+          node grok-reconstructed-cli.mjs --version
+      - name: Publish preview release with assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p 'JSON.parse(require("node:fs").readFileSync("cli/package.json", "utf8")).version')"
+          tag="cli-v${version}"
+          gh release create "$tag" cli/dist/release/* \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "CLI ${version} — Termux preview" \
+            --prerelease --latest=false --notes-file cli/RELEASE_NOTES.md
