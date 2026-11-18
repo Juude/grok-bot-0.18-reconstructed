@@ -1,13 +1,15 @@
 import { build } from 'esbuild';
-import { chmod, mkdir, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const result = await build({
   absWorkingDir: root, entryPoints: ['src/main.ts'], outfile: 'dist/main.mjs',
   bundle: true, platform: 'node', format: 'esm', target: 'node22',
   metafile: true, banner: { js: '#!/usr/bin/env node' },
+  define: { __CLI_VERSION__: JSON.stringify(pkg.version) },
 });
 const inputs = Object.keys(result.metafile.inputs);
 const allowedRecovered = new Set([
@@ -29,7 +31,7 @@ for (const output of Object.values(result.metafile.outputs)) {
 }
 await mkdir(path.join(root, 'dist'), { recursive: true });
 await writeFile(path.join(root, 'dist/provenance.json'), JSON.stringify({
-  schemaVersion: 1, runtimeDependencies: 'Node.js builtins only',
+  schemaVersion: 1, version: pkg.version, runtimeDependencies: 'Node.js builtins only',
   recoveredInputs: inputs.filter(input => allowedRecovered.has(input)),
   newInputs: inputs.filter(input => input.startsWith('src/')),
   upstreamPayloadRequired: false, licenseGrant: false,

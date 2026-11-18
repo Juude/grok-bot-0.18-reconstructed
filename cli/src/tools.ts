@@ -1,6 +1,6 @@
 import { open, readdir, realpath, lstat, mkdir } from 'node:fs/promises';
 import { constants } from 'node:fs';
-import { dirname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import type { FileMemoryStore } from '../../source/host/extensions/memory/memory-service.js';
 import type { CodexDirectTool } from '../../source/host/extensions/inference/codex-direct-responses.js';
@@ -91,7 +91,10 @@ export function makeTools(options: { cwd: string; memory: FileMemoryStore; allow
 function runShell(command: string, cwd: string, signal: AbortSignal): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const posix = process.platform !== 'win32';
-    const child = spawn(command, { cwd, shell: true, detached: posix, stdio: ['ignore', 'pipe', 'pipe'] });
+    // Termux installs its shell under PREFIX; /bin/sh is not available on Android.
+    const shell = process.platform === 'android' && process.env.PREFIX
+      ? join(process.env.PREFIX, 'bin/sh') : true;
+    const child = spawn(command, { cwd, shell, detached: posix, stdio: ['ignore', 'pipe', 'pipe'] });
     const chunks: Buffer[] = [];
     let size = 0, truncated = false, timedOut = false;
     const stop = () => {

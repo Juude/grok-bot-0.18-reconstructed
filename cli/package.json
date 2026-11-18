@@ -8,6 +8,7 @@
   "bin": { "grok-reconstructed": "dist/main.mjs" },
   "scripts": {
     "build": "node build.mjs",
+    "package:release": "node package-release.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "npm run build && node --test tests/*.test.mjs"
   },

@@ -10,6 +10,10 @@ code. The repository's [NOTICE](../NOTICE.md) and [PROVENANCE](../PROVENANCE.md)
 still apply. This package deliberately does not declare an open-source license
 for material whose licensing has not been established.
 
+Prebuilt portable releases are available under the `cli-v*` tags. For Android,
+see the Chinese [Termux installation guide](TERMUX.md). Downloaded releases need
+only Node.js 22+, with no build dependencies or npm installation on the device.
+
 ## Build and run
 
 Install from this subdirectory; the root desktop dependency installation is not

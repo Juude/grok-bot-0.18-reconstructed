@@ -6,7 +6,7 @@ import { streamCodexDirectResponses } from '../../source/host/extensions/inferen
 import { FileMemoryStore } from '../../source/host/extensions/memory/memory-service.js';
 import { renderMemorySystemPrompt } from '../../source/host/runner/sand-memory.js';
 import { createRealDebouncePolicy } from '../../source/internal/scheduling.js';
-import { parseOptions, HELP } from './options.js';
+import { parseOptions, HELP, VERSION } from './options.js';
 import { lockState, loadHistory, saveHistory, type Message } from './state.js';
 import { makeTools } from './tools.js';
 
@@ -15,6 +15,7 @@ function terminalText(text: string): string { return text.replace(/[\x00-\x08\x0
 async function main(): Promise<void> {
   const options = parseOptions(process.argv.slice(2));
   if (options.help) { stdout.write(HELP); return; }
+  if (options.version) { stdout.write(VERSION + '\n'); return; }
   // Validate the workspace before allowing tools to run.
   await realpath(options.cwd);
   process.umask(0o077);
@@ -71,7 +72,7 @@ async function main(): Promise<void> {
         signal.throwIfAborted();
         const headers = new Headers(init?.headers);
         if (options.apiKey) headers.set('authorization', `Bearer ${options.apiKey}`);
-        headers.set('user-agent', 'grok-reconstructed-cli/0.1');
+        headers.set('user-agent', `grok-reconstructed-cli/${VERSION}`);
         return fetch(url, { ...init, headers, signal, redirect: 'error' });
       };
       try {

@@ -3,9 +3,12 @@ import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 
+declare const __CLI_VERSION__: string;
+export const VERSION = __CLI_VERSION__;
+
 export function parseOptions(args: string[], env = process.env) {
   const parsed = parseArgs({ args, allowPositionals: true, options: {
-    help: { type: 'boolean', short: 'h' }, model: { type: 'string' },
+    help: { type: 'boolean', short: 'h' }, version: { type: 'boolean', short: 'v' }, model: { type: 'string' },
     endpoint: { type: 'string' }, cwd: { type: 'string' },
     session: { type: 'string', default: 'default' }, 'data-dir': { type: 'string' },
     'max-steps': { type: 'string', default: '8' }, timeout: { type: 'string', default: '120' },
@@ -27,7 +30,7 @@ export function parseOptions(args: string[], env = process.env) {
   }
   const workspaceId = createHash('sha256').update(cwd).digest('hex').slice(0, 16);
   return {
-    help: parsed.values.help === true, cwd, session, endpoint: endpoint.href,
+    help: parsed.values.help === true, version: parsed.values.version === true, cwd, session, endpoint: endpoint.href,
     model: parsed.values.model ?? env.OPENAI_MODEL ?? '', apiKey: env.OPENAI_API_KEY ?? '',
     dataDir: resolve(parsed.values['data-dir'] ?? join(homedir(), '.local/share/grok-reconstructed-cli', workspaceId)),
     maxSteps, timeoutMs: timeout * 1000, allowWrite: parsed.values['allow-write'] === true,
@@ -37,7 +40,7 @@ export function parseOptions(args: string[], env = process.env) {
 }
 export type Options = ReturnType<typeof parseOptions>;
 
-export const HELP = `Grok reconstructed CLI — experimental, source-only
+export const HELP = `Grok reconstructed CLI ${VERSION} — experimental, source-only
 
 Usage: grok-reconstructed [options] [prompt]
        echo 'Explain this project' | grok-reconstructed [options]
@@ -53,6 +56,7 @@ Usage: grok-reconstructed [options] [prompt]
   --allow-write          Enable writing files inside the workspace
   --allow-shell          Enable arbitrary host shell commands; this is NOT a sandbox
   --json                 Emit newline-delimited JSON events
+  -v, --version          Show the CLI version
   -h, --help             Show this help
 
 Authentication: OPENAI_API_KEY. Local servers may omit it.

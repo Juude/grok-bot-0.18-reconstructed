@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, link, access, copyFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, link, access, copyFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,9 +29,9 @@ async function fixture(t, handler) {
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); await rm(dir, { recursive: true, force: true }); });
   const endpoint = `http://127.0.0.1:${server.address().port}/v1/responses`;
-  const launch = (args = [], input = '') => {
-    const child = spawn(process.execPath, [standalone, '--model', 'test-model', '--endpoint', endpoint, '--cwd', cwd, '--data-dir', state, '--json', ...args], {
-      cwd: tmpdir(), env: { ...process.env, OPENAI_API_KEY: '', OPENAI_MODEL: '' }, stdio: ['pipe', 'pipe', 'pipe'],
+  const launch = (args = [], input = '', runtime = {}) => {
+    const child = spawn(process.execPath, [...(runtime.nodeArgs ?? []), standalone, '--model', 'test-model', '--endpoint', endpoint, '--cwd', cwd, '--data-dir', state, '--json', ...args], {
+      cwd: tmpdir(), env: { ...process.env, OPENAI_API_KEY: '', OPENAI_MODEL: '', ...runtime.env }, stdio: ['pipe', 'pipe', 'pipe'],
     });
     const output = [], errors = [];
     child.stdout.on('data', data => output.push(data)); child.stderr.on('data', data => errors.push(data));
@@ -196,4 +196,23 @@ test('stdin prompts work and session traversal is rejected before touching files
   assert.equal((await f.run([], 'stdin prompt')).code, 0);
   const result = await f.run(['--session', '../escape', 'Hi']); assert.equal(result.code, 1);
   assert.match(result.events.at(-1).message, /Session must/);
+});
+
+test('Android shell adapter selects PREFIX/bin/sh (simulated platform, not a device test)', async t => {
+  const f = await fixture(t, (body, res, requests) => {
+    if (requests.length === 1) sse(res, { calls: [call('Shell', { command: 'pwd' })] });
+    else { assert.equal(resultFor(body).output.trim(), f.cwd); sse(res, { text: 'Termux shell selected.' }); }
+  });
+  const prefix = path.join(f.dir, 'termux-prefix'), trace = path.join(f.dir, 'shell-used');
+  await mkdir(path.join(prefix, 'bin'), { recursive: true });
+  const shell = path.join(prefix, 'bin/sh');
+  await writeFile(shell, '#!/bin/sh\nprintf used > "$CLI_TEST_TRACE"\nexec /bin/sh "$@"\n');
+  await chmod(shell, 0o755);
+  const bootstrap = path.join(f.dir, 'android-platform.mjs');
+  await writeFile(bootstrap, 'Object.defineProperty(process, "platform", {value: "android"});\n');
+  const result = await f.run(['--allow-shell', 'Check Android shell'], '', {
+    nodeArgs: ['--import', bootstrap], env: { PREFIX: prefix, CLI_TEST_TRACE: trace },
+  });
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.equal(await readFile(trace, 'utf8'), 'used');
 });
